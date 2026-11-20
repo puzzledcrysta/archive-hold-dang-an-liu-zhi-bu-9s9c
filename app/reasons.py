@@ -9,6 +9,10 @@ REASONS = {
     'AMOUNT_DELTA': '复算与外部账计量不同', 'BOOK_CONFLICT': '独立账含重复业务键',
     'RUN_UNKNOWN': '没有此批次', 'DEMO_UNKNOWN': '没有此样例', 'STALE': '复核版本已过期',
     'REVIEW_NOTE': '有差异时须填写复核意见', 'REVIEW_DECISION': '复核结论无效',
+    'CREDENTIAL_UNKNOWN': '该批次没有这张外部凭据', 'CLAIM_CONTENDED': '凭据已由先到批次核销',
+    'CLAIM_RETRY': '重试确认未重复核销', 'RETURN_REASON': '退回依据无效',
+    'RETURN_NOTE': '其他退回依据须填写说明', 'NOT_HELD': '凭据尚未核销，无法退回',
+    'RETURN_DENIED': '只有核销凭据的批次可以退回',
 }
 
 REASONS.update({'ARCHIVE_POLICY': '保管版本冲突或缺失', 'ARCHIVE_HOLD': '留置区段无效', 'ARCHIVE_DATES': '日期范围无效', 'DATE': '日期格式无效', 'REV_BLOCKED': '较新来源尚未采信'})

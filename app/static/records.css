@@ -62,7 +62,13 @@
     td li { max-width: 24ch; overflow-wrap: anywhere; }
     .state { display: inline-block; color: var(--ok); font-size: 12px; white-space: nowrap; }
     .state.problem { color: var(--bad); }
+    .state--muted { color: var(--muted); }
     .state { border-radius: 99px; background: color-mix(in srgb, currentColor 13%, transparent); padding: 3px 9px; }
+    .audit { border-top: 3px double var(--line-strong); }
+    .audit-title { font-size: 13px; color: var(--muted); padding: 9px 13px 4px; letter-spacing: .1em; margin: 0; }
+    .audit .scroll { max-height: 260px; }
+    .return-form { display: grid; gap: 5px; margin-top: 6px; min-width: 13em; }
+    .return-form[hidden] { display: none; }
     .empty { margin: var(--pad); color: var(--muted); }
     #signal { max-height: 358px; overflow: auto; }
     .signal dl, .signal ol { padding: 0; margin: 0; }

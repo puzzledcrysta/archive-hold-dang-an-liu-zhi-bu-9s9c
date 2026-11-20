@@ -50,6 +50,18 @@ class Review(BaseModel):
     note: str = Field(default='',max_length=500)
 
 
+class Claim(BaseModel):
+    credential_key: str = Field(min_length=1,max_length=120)
+    request_id: str = Field(default='',max_length=120)
+    note: str = Field(default='',max_length=500)
+
+
+class SettleReturn(BaseModel):
+    credential_key: str = Field(min_length=1,max_length=120)
+    reason: Literal['依据不足','归属待核','对方复核','其他']
+    note: str = Field(default='',max_length=500)
+
+
 def read_sample(name):
     choices = {'shift':'shift.csv','external':'external.csv'}
     if name not in choices:

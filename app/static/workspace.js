@@ -17,15 +17,21 @@ let renderEpoch = 0;
 let activeView = null;
 const filter = byId('filter');
 const differences = byId('differences');
+const auditGrid = byId('grid-audit');
+const auditRows = byId('audit-rows');
+
+const SETTLE_STATUS = {HELD: '已核销', RETURNED: '已退回'};
+const RETURN_REASONS = ['依据不足', '归属待核', '对方复核', '其他'];
 
 function filterTable() {
   if (!activeView) return;
   const {columns, rows, stage} = activeView;
-  const query = filter.value.trim().toLocaleLowerCase();
+  const term = filter.value.trim().toLocaleLowerCase();
   const selected = rows.filter(row => {
     if (stage === 'reconcile' && differences.checked && row.code === 'MATCH') return false;
-    return !query || [row.key,row.id,row.line,row.code,settings.reasons[row.code],row.detail,row.note,row.kind]
-      .some(value => String(value ?? '').toLocaleLowerCase().includes(query));
+    return !term || [row.key,row.id,row.line,row.code,settings.reasons[row.code],row.detail,row.note,row.kind,
+      row.credential_key,row.status_label,row.holder_run,row.return_reason,row.reason_code,row.action_label,row.action]
+      .some(value => String(value ?? '').toLocaleLowerCase().includes(term));
   });
   byId('shown').textContent = `${selected.length} / ${rows.length}`;
   table(body, columns, selected);
@@ -74,6 +80,88 @@ function inspect(row) {
   return cell;
 }
 
+const shortId = value => value ? `${String(value).slice(0, 9)}…` : '';
+
+function settleActions(row) {
+  const cell = el('div');
+  const current = result.manifest.run_id;
+  const claimButton = el('button', row.status === 'RETURNED' ? '重新认领' : '认领核销', 'btn btn--primary');
+  claimButton.type = 'button';
+  claimButton.disabled = row.status === 'HELD';
+  claimButton.addEventListener('click', async () => {
+    claimButton.disabled = true;
+    try {
+      const response = await query(`/api/settle/${current}/claim`, {credential_key: row.credential_key});
+      notice(response.written_off ? '凭据已核销，费用只结一次' : '重试确认：未重复核销');
+      await render();
+    } catch (error) {
+      notice(error.message, true);
+      if (error.status === 409) await render();
+      else claimButton.disabled = false;
+    }
+  });
+  cell.append(claimButton);
+  if (row.status === 'HELD') {
+    const returnButton = el('button', '退回', 'btn');
+    returnButton.type = 'button';
+    const form = el('form', undefined, 'return-form');
+    form.hidden = true;
+    const select = el('select');
+    for (const reason of RETURN_REASONS) select.append(el('option', reason));
+    const textarea = el('textarea');
+    textarea.rows = 2;
+    textarea.maxLength = 500;
+    textarea.placeholder = '其他依据时填写说明';
+    const confirmButton = el('button', '确认退回', 'btn btn--primary');
+    confirmButton.type = 'submit';
+    form.append(select, textarea, confirmButton);
+    returnButton.addEventListener('click', () => { form.hidden = !form.hidden; });
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      confirmButton.disabled = true;
+      try {
+        await query(`/api/settle/${current}/return`,
+          {credential_key: row.credential_key, reason: select.value, note: textarea.value});
+        notice('核销已退回，可被重新认领');
+        await render();
+      } catch (error) {
+        notice(error.message, true);
+        confirmButton.disabled = false;
+      }
+    });
+    cell.append(returnButton, form);
+  }
+  return cell;
+}
+
+function statusTag(row) {
+  if (!row.status) return el('span', '待认领', 'state state--muted');
+  const label = SETTLE_STATUS[row.status] || row.status;
+  return el('span', label, row.status === 'HELD' ? 'state' : 'state problem');
+}
+
+function renderSettle(report) {
+  const columns = [
+    ['外部凭据', 'credential_key'], ['外部行', 'book_line', 'num'], ['外部账', 'reference', 'num'],
+    ['核销状态', statusTag], ['持有批次', row => shortId(row.holder_run)],
+    ['退回依据', row => row.return_reason ?? ''],
+    ['核销/退回 UTC', row => (row.returned_at || row.claimed_at || '').slice(0, 19).replace('T', ' ')],
+    ['操作', settleActions],
+  ];
+  activeView = {stage: 'settle', columns, rows: report.credentials};
+  byId('tools').hidden = false;
+  byId('only-differences').hidden = true;
+  filterTable();
+  const auditColumns = [
+    ['#', 'id', 'num'], ['外部凭据', 'credential_key'], ['动作', row => row.action_label || row.action],
+    ['依据码', 'reason_code'], ['说明', 'detail'], ['登记批次', row => shortId(row.run_id)],
+    ['登记 UTC', row => row.created.slice(0, 19).replace('T', ' ')],
+  ];
+  auditGrid.hidden = false;
+  table(auditRows, auditColumns, report.events);
+  auditGrid.querySelector('.audit-title').textContent = `核销与争用依据（${report.events.length} 条）`;
+}
+
 function setRun(report) {
   result = report;
   byId('created').textContent = `${report.manifest.created.slice(0, 19).replace('T', ' ')} UTC`;
@@ -93,6 +181,7 @@ async function render() {
   const stage = selected;
   byId('phase').textContent = settings.tabs[stage];
   byId('review').hidden = true;
+  auditGrid.hidden = stage !== 'settle';
   for (const link of links) {
     if (link.dataset.module === stage) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
@@ -123,6 +212,10 @@ async function render() {
       const contract = await query('/api/contract', inputs);
       view = [key, line, ['修订', 'revision', 'num'], ['来源时刻 UTC', 'time'], ['字段', row => evidence('归一值', Object.entries(row.fields).map(([k,v]) => `${k} · ${v}`))]];
       rows = contract.accepted;
+    } else if (stage === 'settle') {
+      const report = await query(`/api/settle/${id}`);
+      if (ticket === renderEpoch) renderSettle(report);
+      return;
     } else if (stage === 'runs') {
       const runs = await query('/api/runs');
       view = [['指纹','id'], ['创建 UTC','created'], ['操作', row => {

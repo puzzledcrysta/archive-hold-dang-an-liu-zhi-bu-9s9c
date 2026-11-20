@@ -38,6 +38,11 @@
       <div id="tools" class="filters" hidden><label>筛选 <input id="filter" type="search" placeholder="档案件 / 原因" maxlength="80"></label>
         <label id="only-differences" hidden><input id="differences" type="checkbox"> 只看差异</label><output id="shown"></output></div>
       <div class="scroll" id="grid-data"><p class="empty">运行本班样例</p></div>
+      <div class="scroll" id="grid-data"><p class="empty">运行本班样例</p></div>
+      <div id="grid-audit" class="audit" hidden>
+        <h2 class="audit-title">核销与争用依据</h2>
+        <div class="scroll" id="audit-rows"></div>
+      </div>
       <form id="review" class="panel__body" hidden>
         <label>复核意见 <textarea id="review-note" maxlength="500" rows="2"></textarea></label>
         <div class="actions"><label>结论 <select id="decision"><option>确认</option><option>退回</option></select></label>
